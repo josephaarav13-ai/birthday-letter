@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Late Night City</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;1,300;1,600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #08090d;
+    --bg2: #0d0f18;
+    --neon-blue: #4fc3f7;
+    --neon-pink: #f472b6;
+    --neon-amber: #fbbf24;
+    --neon-green: #34d399;
+    --text: #e2e4ef;
+    --muted: #6b7280;
+    --glass: rgba(255,255,255,0.04);
+    --glass-border: rgba(255,255,255,0.08);
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; overflow-x: hidden; }
+
+  /* ── RAIN CANVAS ── */
+  #rain { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.18; }
+
+  /* ── CITY SKYLINE SVG ── */
+  #skyline { position: fixed; bottom: 0; left: 0; width: 100%; z-index: 1; pointer-events: none; }
+
+  /* ── STARS ── */
+  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .star { position: absolute; border-radius: 50%; background: white; animation: twinkle var(--d,3s) ease-in-out infinite; opacity: 0; }
+  @keyframes twinkle { 0%,100%{opacity:0} 50%{opacity:var(--op,0.8)} }
+
+  /* ── PASSWORD SCREEN ── */
+  #lock-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #08090d;
+    animation: none;
+  }
+  #lock-screen.unlocking { animation: fadeOut 0.8s ease forwards 0.3s; }
+  @keyframes fadeOut { to { opacity: 0; pointer-events: none; } }
+
+  .lock-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 6vw, 4.5rem);
+    font-style: italic;
+    font-weight: 300;
+    color: var(--neon-blue);
+    text-shadow: 0 0 40px rgba(79,195,247,0.6), 0 0 80px rgba(79,195,247,0.2);
+    margin-bottom: 0.3em;
+    letter-spacing: 0.05em;
+  }
+  .lock-sub {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--muted);
+    margin-bottom: 3em;
+    text-transform: uppercase;
+  }
+  .lock-form { display: flex; flex-direction: column; align-items: center; gap: 1rem; width: 280px; }
+  .lock-input {
+    width: 100%; background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.9rem;
+    padding: 0.9rem 1.2rem; border-radius: 4px; outline: none; text-align: center;
+    letter-spacing: 0.3em; transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .lock-input:focus { border-color: var(--neon-blue); box-shadow: 0 0 20px rgba(79,195,247,0.15); }
+  .lock-input.error { border-color: var(--neon-pink); box-shadow: 0 0 20px rgba(244,114,182,0.2); animation: shake 0.4s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .lock-btn {
+    width: 100%; padding: 0.85rem; background: transparent;
+    border: 1px solid var(--neon-blue); color: var(--neon-blue);
+    font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 0.25em;
+    text-transform: uppercase; cursor: pointer; border-radius: 4px;
+    transition: background 0.3s, box-shadow 0.3s, color 0.3s;
+  }
+  .lock-btn:hover { background: rgba(79,195,247,0.1); box-shadow: 0 0 20px rgba(79,195,247,0.2); }
+  .lock-hint { font-size: 0.6rem; color: var(--muted); opacity: 0.6; }
+
+  /* ── SETTINGS PANEL ── */
+  #settings-toggle {
+    position: fixed; top: 1.5rem; right: 1.5rem; z-index: 900;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--muted); width: 40px; height: 40px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; transition: all 0.3s; backdrop-filter: blur(10px);
+  }
+  #settings-toggle:hover { border-color: var(--neon-blue); color: var(--neon-blue); }
+
+  #settings-panel {
+    position: fixed; top: 0; right: -380px; width: 360px; height: 100%;
+    background: rgba(8,9,13,0.97); border-left: 1px solid var(--glass-border);
+    z-index: 800; padding: 2rem 1.5rem; overflow-y: auto;
+    transition: right 0.4s cubic-bezier(0.4,0,0.2,1);
+    backdrop-filter: blur(20px);
+  }
+  #settings-panel.open { right: 0; }
+
+  .settings-title {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.5rem;
+    color: var(--neon-blue); margin-bottom: 2rem; letter-spacing: 0.05em;
+  }
+  .settings-section { margin-bottom: 2rem; }
+  .settings-label { font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.6rem; display: block; }
+  .settings-input {
+    width: 100%; background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.8rem;
+    padding: 0.7rem 1rem; border-radius: 4px; outline: none;
+    transition: border-color 0.3s;
+  }
+  .settings-input:focus { border-color: var(--neon-blue); }
+  .settings-btn {
+    padding: 0.6rem 1.2rem; background: transparent;
+    border: 1px solid var(--neon-green); color: var(--neon-green);
+    font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.2em;
+    text-transform: uppercase; cursor: pointer; border-radius: 4px;
+    transition: all 0.3s; margin-top: 0.6rem;
+  }
+  .settings-btn:hover { background: rgba(52,211,153,0.1); }
+  .settings-divider { border: none; border-top: 1px solid var(--glass-border); margin: 1.5rem 0; }
+
+  /* ── MAIN CONTENT ── */
+  #main { position: relative; z-index: 10; min-height: 100vh; padding: 0 2rem 12rem; }
+
+  /* ── HERO ── */
+  .hero {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; text-align: center; position: relative;
+  }
+  .hero-eyebrow { font-size: 0.6rem; letter-spacing: 0.5em; color: var(--muted); text-transform: uppercase; margin-bottom: 1.5rem; }
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif; font-size: clamp(3.5rem, 10vw, 8rem);
+    font-weight: 300; font-style: italic; line-height: 0.9;
+    background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-pink) 50%, var(--neon-amber) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 0 30px rgba(79,195,247,0.3));
+  }
+  .hero-sub {
+    font-size: 0.65rem; letter-spacing: 0.4em; color: var(--muted); text-transform: uppercase;
+    margin-bottom: 3rem;
+  }
+  .time-display {
+    font-family: 'Space Mono', monospace; font-size: clamp(1.5rem, 4vw, 2.5rem);
+    color: var(--neon-amber); opacity: 0.8;
+    text-shadow: 0 0 20px rgba(251,191,36,0.4);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── MUSIC PLAYER ── */
+  .player-wrapper {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+    z-index: 500; width: min(460px, 92vw);
+  }
+  .player {
+    background: rgba(13,15,24,0.9); border: 1px solid var(--glass-border);
+    border-radius: 12px; padding: 1rem 1.2rem;
+    backdrop-filter: blur(30px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(79,195,247,0.05);
+  }
+  .player-top { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem; }
+  .player-art {
+    width: 44px; height: 44px; border-radius: 6px; background: linear-gradient(135deg,#1a1f35,#0d1020);
+    border: 1px solid var(--glass-border); flex-shrink: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+    position: relative;
+  }
+  .player-art.spinning { animation: spinArt 8s linear infinite; }
+  @keyframes spinArt { to { transform: rotate(360deg); } }
+  .player-info { flex: 1; min-width: 0; }
+  .player-title { font-size: 0.8rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.2rem; }
+  .player-artist { font-size: 0.65rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player-controls { display: flex; align-items: center; gap: 0.8rem; }
+  .ctrl-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1rem; padding: 0.3rem; transition: color 0.2s, transform 0.2s;
+    line-height: 1;
+  }
+  .ctrl-btn:hover { color: var(--text); transform: scale(1.1); }
+  .ctrl-btn.play { color: var(--neon-blue); font-size: 1.3rem; }
+  .ctrl-btn.play:hover { color: var(--neon-blue); filter: drop-shadow(0 0 8px var(--neon-blue)); }
+  .progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; cursor: pointer; margin-bottom: 0.5rem; position: relative; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
+  .time-row { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--muted); }
+  .vol-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+  .vol-icon { font-size: 0.75rem; color: var(--muted); }
+  .vol-slider { flex: 1; -webkit-appearance: none; height: 2px; background: rgba(255,255,255,0.1); border-radius: 1px; outline: none; cursor: pointer; }
+  .vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: var(--neon-blue); border-radius: 50%; cursor: pointer; }
+  .music-source-row { margin-top: 0.7rem; display: flex; gap: 0.5rem; }
+  .music-source-input {
+    flex: 1; background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.65rem;
+    padding: 0.45rem 0.7rem; border-radius: 4px; outline: none;
+  }
+  .music-source-input:focus { border-color: var(--neon-blue); }
+  .music-load-btn {
+    padding: 0.45rem 0.8rem; background: transparent;
+    border: 1px solid var(--neon-pink); color: var(--neon-pink);
+    font-family: 'Space Mono', monospace; font-size: 0.6rem;
+    cursor: pointer; border-radius: 4px; transition: all 0.3s; white-space: nowrap;
+  }
+  .music-load-btn:hover { background: rgba(244,114,182,0.1); }
+
+  /* ── POLAROIDS ── */
+  .polaroids-section { padding: 4rem 0 2rem; }
+  .polaroids-header {
+    font-family: 'Cormorant Garamond', serif; font-size: 0.6rem;
+    letter-spacing: 0.5em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 3rem; text-align: center;
+  }
+  .polaroids-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem; max-width: 1000px; margin: 0 auto;
+  }
+  .polaroid {
+    background: #f5f0e8; padding: 0.8rem 0.8rem 2.5rem;
+    box-shadow: 4px 8px 24px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.2);
+    position: relative; cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+  }
+  .polaroid:nth-child(1) { transform: rotate(-2.5deg); }
+  .polaroid:nth-child(2) { transform: rotate(1.8deg); margin-top: 1.5rem; }
+  .polaroid:nth-child(3) { transform: rotate(-1.2deg); }
+  .polaroid:nth-child(4) { transform: rotate(3deg); margin-top: 2rem; }
+  .polaroid:hover { box-shadow: 8px 16px 40px rgba(0,0,0,0.8), 0 0 30px rgba(79,195,247,0.15); z-index: 10; }
+  .polaroid:nth-child(1):hover { transform: rotate(-2.5deg) scale(1.06); }
+  .polaroid:nth-child(2):hover { transform: rotate(1.8deg) scale(1.06); }
+  .polaroid:nth-child(3):hover { transform: rotate(-1.2deg) scale(1.06); }
+  .polaroid:nth-child(4):hover { transform: rotate(3deg) scale(1.06); }
+  .polaroid-img {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    display: block; background: #1a1a2e;
+    position: relative;
+  }
+  .polaroid-placeholder {
+    width: 100%; aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0.5rem;
+    background: linear-gradient(135deg, #0d1020 0%, #1a1f35 100%);
+    color: rgba(255,255,255,0.2); font-size: 2rem;
+    cursor: pointer; transition: background 0.3s;
+  }
+  .polaroid-placeholder:hover { background: linear-gradient(135deg, #111827 0%, #1e2640 100%); }
+  .polaroid-placeholder span { font-size: 0.6rem; letter-spacing: 0.2em; font-family: 'Space Mono'; color: rgba(255,255,255,0.15); }
+  .polaroid-caption {
+    margin-top: 0.5rem; text-align: center; font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 0.95rem; color: #333;
+    outline: none; width: 100%; background: transparent; border: none;
+    text-align: center;
+  }
+  .polaroid-caption:focus { color: #111; }
+  .polaroid-tape {
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    width: 50px; height: 20px; background: rgba(255,255,255,0.4);
+    border-radius: 2px;
+  }
+  input[type="file"] { display: none; }
+
+  /* ── NEON LIGHTS EFFECT ── */
+  .neon-line {
+    position: fixed; pointer-events: none; z-index: 2;
+    opacity: 0.5;
+  }
+  .neon-line-h {
+    height: 1px; width: 100%;
+    background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+    animation: scanline 8s ease-in-out infinite;
+  }
+  @keyframes scanline { 0%,100%{top:10%;opacity:0.2} 50%{top:85%;opacity:0.5} }
+
+  /* ── FOG OVERLAY ── */
+  .fog {
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 40%;
+    background: linear-gradient(to top, rgba(8,9,13,0.7) 0%, transparent 100%);
+    z-index: 3; pointer-events: none;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 2px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 8rem; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(13,15,24,0.95); border: 1px solid var(--neon-green);
+    color: var(--neon-green); font-size: 0.7rem; letter-spacing: 0.15em;
+    padding: 0.6rem 1.2rem; border-radius: 4px; z-index: 600;
+    opacity: 0; transition: all 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── AUDIO VISUALIZER BARS ── */
+  .visualizer { display: flex; align-items: flex-end; gap: 2px; height: 20px; margin-top: 0.4rem; }
+  .viz-bar {
+    width: 3px; background: var(--neon-blue); border-radius: 2px;
+    animation: vizBounce var(--d,0.6s) ease-in-out infinite alternate;
+    height: var(--h,4px);
+  }
+  @keyframes vizBounce { to { height: var(--th,16px); opacity: 0.6; } }
+  .viz-bar.paused { animation-play-state: paused; }
+</style>
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+<div class="stars" id="stars"></div>
+<div class="neon-line neon-line-h"></div>
+<div class="fog"></div>
+
+<!-- CITY SKYLINE -->
+<svg id="skyline" viewBox="0 0 1440 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <!-- Far buildings -->
+  <g fill="#0c0e1a" opacity="0.9">
+    <rect x="0" y="180" width="60" height="140"/><rect x="55" y="200" width="40" height="120"/><rect x="90" y="160" width="50" height="160"/>
+    <rect x="135" y="190" width="35" height="130"/><rect x="165" y="140" width="70" height="180"/><rect x="230" y="170" width="45" height="150"/>
+    <rect x="270" y="150" width="55" height="170"/><rect x="320" y="130" width="80" height="190"/><rect x="395" y="160" width="45" height="160"/>
+    <rect x="435" y="110" width="60" height="210"/><rect x="490" y="170" width="50" height="150"/><rect x="535" y="140" width="65" height="180"/>
+    <rect x="595" y="155" width="40" height="165"/><rect x="630" y="120" width="75" height="200"/><rect x="700" y="165" width="50" height="155"/>
+    <rect x="745" y="135" width="60" height="185"/><rect x="800" y="100" width="90" height="220"/><rect x="885" y="150" width="55" height="170"/>
+    <rect x="935" y="160" width="45" height="160"/><rect x="975" y="130" width="70" height="190"/><rect x="1040" y="155" width="50" height="165"/>
+    <rect x="1085" y="115" width="65" height="205"/><rect x="1145" y="145" width="55" height="175"/><rect x="1195" y="165" width="40" height="155"/>
+    <rect x="1230" y="125" width="80" height="195"/><rect x="1305" y="150" width="50" height="170"/><rect x="1350" y="135" width="60" height="185"/>
+    <rect x="1405" y="170" width="35" height="150"/>
+  </g>
+  <!-- Window lights -->
+  <g filter="url(#glow)" opacity="0.7">
+    <rect x="170" y="155" width="4" height="4" fill="#fbbf24"/><rect x="180" y="165" width="4" height="4" fill="#4fc3f7"/>
+    <rect x="325" y="145" width="4" height="4" fill="#f472b6"/><rect x="345" y="155" width="4" height="4" fill="#fbbf24"/>
+    <rect x="440" y="125" width="4" height="4" fill="#4fc3f7"/><rect x="455" y="140" width="4" height="4" fill="#34d399"/>
+    <rect x="632" y="130" width="4" height="4" fill="#fbbf24"/><rect x="650" y="145" width="4" height="4" fill="#f472b6"/>
+    <rect x="805" y="115" width="4" height="4" fill="#4fc3f7"/><rect x="825" y="130" width="4" height="4" fill="#fbbf24"/>
+    <rect x="840" y="115" width="4" height="4" fill="#f472b6"/><rect x="980" y="140" width="4" height="4" fill="#34d399"/>
+    <rect x="1000" y="155" width="4" height="4" fill="#fbbf24"/><rect x="1090" y="125" width="4" height="4" fill="#4fc3f7"/>
+    <rect x="1110" y="140" width="4" height="4" fill="#f472b6"/><rect x="1235" y="135" width="4" height="4" fill="#fbbf24"/>
+    <rect x="1255" y="150" width="4" height="4" fill="#4fc3f7"/>
+  </g>
+  <!-- Road reflection -->
+  <rect x="0" y="300" width="1440" height="20" fill="#0a0c14" opacity="0.9"/>
+  <rect x="0" y="308" width="1440" height="2" fill="rgba(79,195,247,0.08)"/>
+</svg>
+
+<!-- PASSWORD SCREEN -->
+<div id="lock-screen">
+  <div class="lock-title">late night city</div>
+  <div class="lock-sub">enter to unlock</div>
+  <div class="lock-form">
+    <input type="password" class="lock-input" id="pw-input" placeholder="· · · · · · · ·" autocomplete="off"/>
+    <button class="lock-btn" onclick="checkPassword()">unlock →</button>
+    <div class="lock-hint" id="pw-hint">default password: midnight</div>
+  </div>
+</div>
+
+<!-- SETTINGS TOGGLE -->
+<button id="settings-toggle" onclick="toggleSettings()">⚙</button>
+
+<!-- SETTINGS PANEL -->
+<div id="settings-panel">
+  <div class="settings-title">customise</div>
+
+  <div class="settings-section">
+    <label class="settings-label">🔐 change password</label>
+    <input type="password" class="settings-input" id="new-pw" placeholder="new password"/>
+    <br>
+    <input type="password" class="settings-input" id="confirm-pw" placeholder="confirm password" style="margin-top:0.5rem"/>
+    <br>
+    <button class="settings-btn" onclick="changePassword()">save password</button>
+  </div>
+
+  <hr class="settings-divider">
+
+  <div class="settings-section">
+    <label class="settings-label">🎵 page title</label>
+    <input type="text" class="settings-input" id="page-title-input" placeholder="late night city" value="late night city"/>
+    <button class="settings-btn" onclick="updatePageTitle()">update title</button>
+  </div>
+
+  <hr class="settings-divider">
+
+  <div class="settings-section">
+    <label class="settings-label">🌧 rain intensity</label>
+    <input type="range" min="0" max="100" value="40" class="settings-input" id="rain-intensity" style="padding:0;height:auto;cursor:pointer" oninput="updateRain(this.value)"/>
+  </div>
+
+  <div class="settings-section">
+    <label class="settings-label">✨ star density</label>
+    <input type="range" min="0" max="100" value="50" class="settings-input" id="star-density" style="padding:0;height:auto;cursor:pointer" oninput="updateStars(this.value)"/>
+  </div>
+
+  <hr class="settings-divider">
+
+  <div class="settings-section">
+    <label class="settings-label">🎨 accent color</label>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.3rem">
+      <button class="settings-btn" style="border-color:#4fc3f7;color:#4fc3f7;flex:1" onclick="setAccent('#4fc3f7')">blue</button>
+      <button class="settings-btn" style="border-color:#f472b6;color:#f472b6;flex:1" onclick="setAccent('#f472b6')">pink</button>
+      <button class="settings-btn" style="border-color:#fbbf24;color:#fbbf24;flex:1" onclick="setAccent('#fbbf24')">amber</button>
+      <button class="settings-btn" style="border-color:#34d399;color:#34d399;flex:1" onclick="setAccent('#34d399')">green</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main" style="display:none">
+  <section class="hero">
+    <div class="hero-eyebrow">♜ 3:00 AM / the city never sleeps</div>
+    <div class="hero-title" id="main-title">late night<br>city</div>
+    <div class="hero-sub">rain · neon · solitude</div>
+    <div class="time-display" id="clock">--:-- --</div>
+  </section>
+
+  <section class="polaroids-section">
+    <div class="polaroids-header">· · · memories · · ·</div>
+    <div class="polaroids-grid" id="polaroids-grid">
+      <!-- 4 polaroids generated by JS -->
+    </div>
+  </section>
+</div>
+
+<!-- MUSIC PLAYER -->
+<div class="player-wrapper" id="player-wrapper" style="display:none">
+  <div class="player">
+    <div class="player-top">
+      <div class="player-art" id="player-art">🎵</div>
+      <div class="player-info">
+        <div class="player-title" id="player-title">no track loaded</div>
+        <div class="player-artist" id="player-artist">load a song below ↓</div>
+      </div>
+      <div class="visualizer" id="visualizer"></div>
+    </div>
+    <div class="progress-bar" id="progress-bar" onclick="seekAudio(event)">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="time-row">
+      <span id="current-time">0:00</span>
+      <span id="total-time">0:00</span>
+    </div>
+    <div class="player-controls">
+      <button class="ctrl-btn" onclick="skipBack()">⏮</button>
+      <button class="ctrl-btn play" id="play-btn" onclick="togglePlay()">▶</button>
+      <button class="ctrl-btn" onclick="skipForward()">⏭</button>
+      <button class="ctrl-btn" id="loop-btn" onclick="toggleLoop()" title="Loop">↩</button>
+    </div>
+    <div class="vol-row">
+      <span class="vol-icon">🔈</span>
+      <input type="range" class="vol-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)"/>
+      <span class="vol-icon">🔊</span>
+    </div>
+    <div class="music-source-row">
+      <input type="text" class="music-source-input" id="music-url" placeholder="paste audio URL (.mp3, .ogg …) or load file →"/>
+      <input type="file" id="music-file" accept="audio/*" onchange="loadFile(event)"/>
+      <button class="music-load-btn" onclick="loadFromUrl()">url</button>
+      <button class="music-load-btn" style="border-color:var(--neon-amber);color:var(--neon-amber)" onclick="document.getElementById('music-file').click()">file</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<audio id="audio"></audio>
+
+<script>
+// ── STATE ──
+let password = localStorage.getItem('lnc-password') || 'midnight';
+let isPlaying = false;
+let isLooping = false;
+
+// ── RAIN ──
+const canvas = document.getElementById('rain');
+const ctx = canvas.getContext('2d');
+let drops = [];
+let rainCount = 80;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function initRain() {
+  drops = [];
+  for (let i = 0; i < rainCount; i++) {
+    drops.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      speed: 4 + Math.random() * 8,
+      length: 10 + Math.random() * 20,
+      opacity: 0.1 + Math.random() * 0.4,
+    });
+  }
+}
+initRain();
+
+function drawRain() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drops.forEach(d => {
+    ctx.strokeStyle = `rgba(120,160,200,${d.opacity})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(d.x, d.y);
+    ctx.lineTo(d.x - 1, d.y + d.length);
+    ctx.stroke();
+    d.y += d.speed;
+    if (d.y > canvas.height) { d.y = -d.length; d.x = Math.random() * canvas.width; }
+  });
+  requestAnimationFrame(drawRain);
+}
+drawRain();
+
+function updateRain(val) {
+  rainCount = Math.round(val * 2);
+  canvas.style.opacity = 0.05 + (val / 100) * 0.25;
+  initRain();
+}
+
+// ── STARS ──
+const starsEl = document.getElementById('stars');
+function generateStars(count = 120) {
+  starsEl.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      left:${Math.random()*100}%;top:${Math.random()*60}%;
+      width:${size}px;height:${size}px;
+      --d:${2+Math.random()*4}s;
+      --op:${0.3+Math.random()*0.8};
+      animation-delay:${Math.random()*5}s;
+    `;
+    starsEl.appendChild(s);
+  }
+}
+generateStars();
+function updateStars(val) { generateStars(Math.round(val * 2.5)); }
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+  const ampm = h >= 12 ? 'AM' : 'PM';
+  h = h % 12 || 12;
+  document.getElementById('clock').textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${ampm}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── PASSWORD ──
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkPassword(); });
+
+function checkPassword() {
+  const val = document.getElementById('pw-input').value;
+  if (val === password) {
+    const ls = document.getElementById('lock-screen');
+    ls.classList.add('unlocking');
+    setTimeout(() => {
+      ls.style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      document.getElementById('player-wrapper').style.display = 'block';
+      document.getElementById('settings-toggle').style.display = 'flex';
+      initPolaroids();
+    }, 1100);
+  } else {
+    const inp = document.getElementById('pw-input');
+    inp.classList.add('error');
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('error'), 600);
+    showToast('incorrect password', 'pink');
+  }
+}
+
+function changePassword() {
+  const np = document.getElementById('new-pw').value;
+  const cp = document.getElementById('confirm-pw').value;
+  if (!np) return showToast('enter a new password');
+  if (np !== cp) return showToast('passwords do not match', 'pink');
+  password = np;
+  localStorage.setItem('lnc-password', np);
+  document.getElementById('new-pw').value = '';
+  document.getElementById('confirm-pw').value = '';
+  showToast('password updated ✓');
+}
+
+// ── SETTINGS ──
+let settingsOpen = false;
+function toggleSettings() {
+  settingsOpen = !settingsOpen;
+  document.getElementById('settings-panel').classList.toggle('open', settingsOpen);
+}
+
+function updatePageTitle() {
+  const t = document.getElementById('page-title-input').value || 'late night city';
+  document.getElementById('main-title').innerHTML = t;
+  document.title = t;
+  showToast('title updated ✓');
+}
+
+function setAccent(color) {
+  document.documentElement.style.setProperty('--neon-blue', color);
+  showToast('accent updated ✓');
+}
+
+// ── POLAROIDS ──
+const polaroidDefaults = [
+  { caption: 'city lights, 2am' },
+  { caption: 'window seat' },
+  { caption: 'neon rain' },
+  { caption: 'after hours' },
+];
+
+function initPolaroids() {
+  const grid = document.getElementById('polaroids-grid');
+  grid.innerHTML = '';
+  polaroidDefaults.forEach((p, i) => {
+    const saved = localStorage.getItem(`lnc-polaroid-${i}`);
+    const caption = localStorage.getItem(`lnc-caption-${i}`) || p.caption;
+    const el = document.createElement('div');
+    el.className = 'polaroid';
+    el.innerHTML = `
+      <div class="polaroid-tape"></div>
+      ${saved
+        ? `<img class="polaroid-img" src="${saved}" alt="polaroid ${i+1}" onclick="triggerUpload(${i})">`
+        : `<div class="polaroid-placeholder" onclick="triggerUpload(${i})">📷<span>tap to add photo</span></div>`
+      }
+      <input type="text" class="polaroid-caption" value="${caption}" placeholder="caption..." onchange="saveCaption(${i}, this.value)"/>
+      <input type="file" id="file-${i}" accept="image/*" onchange="loadPolaroid(event,${i})" style="display:none"/>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+function triggerUpload(i) {
+  document.getElementById(`file-${i}`).click();
+}
+
+function loadPolaroid(event, i) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    localStorage.setItem(`lnc-polaroid-${i}`, e.target.result);
+    initPolaroids();
+    showToast('photo added ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveCaption(i, val) {
+  localStorage.setItem(`lnc-caption-${i}`, val);
+}
+
+// ── MUSIC PLAYER ──
+const audio = document.getElementById('audio');
+const playBtn = document.getElementById('play-btn');
+const progressFill = document.getElementById('progress-fill');
+const currentTimeEl = document.getElementById('current-time');
+const totalTimeEl = document.getElementById('total-time');
+
+// Build visualizer bars
+const vizEl = document.getElementById('visualizer');
+for (let i = 0; i < 12; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'viz-bar paused';
+  const h = 2 + Math.random() * 6;
+  const th = 6 + Math.random() * 14;
+  const d = (0.3 + Math.random() * 0.5).toFixed(2);
+  bar.style.cssText = `--h:${h}px;--th:${th}px;--d:${d}s;animation-delay:${(Math.random()*0.4).toFixed(2)}s`;
+  vizEl.appendChild(bar);
+}
+
+function setVizPlaying(playing) {
+  document.querySelectorAll('.viz-bar').forEach(b => {
+    b.classList.toggle('paused', !playing);
+  });
+  document.getElementById('player-art').classList.toggle('spinning', playing);
+}
+
+function togglePlay() {
+  if (!audio.src) return showToast('load a track first', 'pink');
+  if (isPlaying) { audio.pause(); playBtn.textContent = '▶'; isPlaying = false; setVizPlaying(false); }
+  else { audio.play(); playBtn.textContent = '⏸'; isPlaying = true; setVizPlaying(true); }
+}
+
+function toggleLoop() {
+  isLooping = !isLooping;
+  audio.loop = isLooping;
+  document.getElementById('loop-btn').style.color = isLooping ? 'var(--neon-green)' : '';
+  showToast(isLooping ? 'loop on' : 'loop off');
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  progressFill.style.width = pct + '%';
+  currentTimeEl.textContent = formatTime(audio.currentTime);
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  totalTimeEl.textContent = formatTime(audio.duration);
+});
+
+audio.addEventListener('ended', () => {
+  if (!isLooping) { isPlaying = false; playBtn.textContent = '▶'; setVizPlaying(false); }
+});
+
+function seekAudio(e) {
+  if (!audio.duration) return;
+  const rect = document.getElementById('progress-bar').getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  audio.currentTime = pct * audio.duration;
+}
+
+function skipBack() { audio.currentTime = Math.max(0, audio.currentTime - 10); }
+function skipForward() { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10); }
+function setVolume(v) { audio.volume = v; }
+
+function loadFromUrl() {
+  const url = document.getElementById('music-url').value.trim();
+  if (!url) return showToast('paste a URL first', 'pink');
+  audio.src = url;
+  audio.load();
+  const name = url.split('/').pop().replace(/\.[^.]+$/, '') || 'track';
+  document.getElementById('player-title').textContent = name;
+  document.getElementById('player-artist').textContent = 'custom audio';
+  document.getElementById('player-art').textContent = '🎵';
+  audio.play().then(() => { isPlaying = true; playBtn.textContent = '⏸'; setVizPlaying(true); })
+    .catch(() => showToast('cannot autoplay — press ▶', 'pink'));
+}
+
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  audio.src = url;
+  const nameParts = file.name.replace(/\.[^.]+$/, '').split(' - ');
+  document.getElementById('player-title').textContent = nameParts[nameParts.length > 1 ? 1 : 0];
+  document.getElementById('player-artist').textContent = nameParts.length > 1 ? nameParts[0] : file.name;
+  document.getElementById('player-art').textContent = '🎶';
+  audio.play().then(() => { isPlaying = true; playBtn.textContent = '⏸'; setVizPlaying(true); })
+    .catch(() => showToast('press ▶ to play'));
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}`;
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg, type = 'green') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = type === 'pink' ? 'var(--neon-pink)' : 'var(--neon-green)';
+  t.style.color = type === 'pink' ? 'var(--neon-pink)' : 'var(--neon-green)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// hide settings on outside click
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settings-panel');
+  const toggle = document.getElementById('settings-toggle');
+  if (settingsOpen && !panel.contains(e.target) && !toggle.contains(e.target)) {
+    settingsOpen = false;
+    panel.classList.remove('open');
+  }
+});
+
+// Focus password input
+setTimeout(() => document.getElementById('pw-input').focus(), 100);
+</script>
+</body>
+</html>
